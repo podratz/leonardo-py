@@ -1,14 +1,49 @@
 import math
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from copy import Error, copy
 from functools import total_ordering
 from types import NotImplementedType
-from typing import Generator, Self, overload
+from typing import Generator, Self, cast, overload
 
 from ..geometric_primitives import Angle, GeometricRatio
 from ..sequences import AngleSequence, GeometricSequence
 from ..shapes import Rectangle
+
+
+class _RectangleView:
+    """Makes a 0-indexed element accessor subscriptable by int or slice.
+
+    Not RectangleSequence (leonardo.sequences.rectangle_sequence) -- that
+    class's slice branch defaults to a 1-indexed start, which its own
+    tests already depend on. Metal.rectangles needs 0-indexed access
+    (index 0 is the metal's own magnitude), so this is a separate, small
+    wrapper rather than stretching RectangleSequence's convention to fit
+    two different callers.
+    """
+
+    def __init__(self, get: "Callable[[int], Rectangle]") -> None:
+        self._get = get
+
+    @overload
+    def __getitem__(self, subscript: int) -> Rectangle:
+        ...
+
+    @overload
+    def __getitem__(self, subscript: slice) -> list[Rectangle]:
+        ...
+
+    def __getitem__(self, subscript: int | slice) -> Rectangle | list[Rectangle]:
+        if isinstance(subscript, slice):
+            s = cast(slice, subscript)
+            start = s.start if s.start is not None else 0
+            if s.stop is None:
+                raise TypeError("slice stop cannot be None")
+            if s.step == 0:
+                raise ValueError("slice step cannot be zero")
+            step = s.step or 1
+            return [self._get(i) for i in range(start, s.stop, step)]
+        return self._get(cast(int, subscript))
 
 
 @total_ordering
@@ -138,9 +173,12 @@ class Metal(ABC):
         return Rectangle(width=next(self).magnitude, height=self.magnitude)
 
     @property
-    def rectangles(self) -> Generator[Rectangle, None, None]:
+    def rectangles(self) -> _RectangleView:
+        """Rectangles scaling by the metallic ratio, 0-indexed: rectangles[0]
+        is this metal's own magnitude; subscriptable by int or slice.
+        """
         seq = GeometricSequence(self.ratio(), self.magnitude)
-        return (Rectangle(height=self.magnitude, width=width) for width in seq)
+        return _RectangleView(lambda n: Rectangle(height=self.magnitude, width=seq[n]))
 
     # Coalescing
 

@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# direnv -- local cache + the project-local claude-sandboxed shim
+# (home/claude-skills.nix); .envrc and shell.nix themselves ARE
+# committed, they're the whole point of a reproducible setup.
+.direnv/
+
+# macOS
+.DS_Store
+._*
